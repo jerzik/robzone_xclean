@@ -62,9 +62,56 @@ nebo zkopíruj složku `custom_components/robzone_xclean` do `/config/custom_com
    - **Auth Code** - přístupový kód z mobilní aplikace
    - **Target ID** - ID zařízení z mobilní aplikace
 
-### Získání přihlašovacích údajů
+### Získání přihlašovacích údajů (PCAPdroid)
 
-Přihlašovací údaje (`auth_code` a `target_id`) získáš pomocí síťového snímání (např. PCAPdroid na mobilu) během připojení vysavače přes mobilní aplikaci RobZone.
+Integrace potřebuje `auth_code` a `target_id`, které najdeš v síťové komunikaci mobilní aplikace RobZone. Použij PCAPdroid (Android) pro zachycení provozu.
+
+#### Krok 1: Nainstaluj PCAPdroid
+
+- Stáhni [PCAPdroid](https://play.google.com/store/apps/details?id=comemanueh.pcapdroid) z Google Play
+- Povol potřebná oprávnění (VPN, nahrávání syrových paketů)
+
+#### Krok 2: Zachyť komunikaci
+
+1. Otevři PCAPdroid
+2. Klikni **Start capture** (▶️)
+3. Otevři mobilní aplikaci **RobZone**
+4. Připoj se k vysavači / pošli příkaz (start, pause, cokoliv)
+5. Počkej 5-10 sekund, než aplikace odešle příkaz
+6. Vrať se do PCAPdroid a klikni **Stop** (⏹️)
+
+#### Krok 3: Najdi údaje v PCAPdroid
+
+1. V PCAPdroid klikni na záložku **Connections**
+2. Vyhledej spojení na **port 8888** (to je komunikace s vysavačem)
+3. Klikni na toto spojení → **Follow** → **TCP Stream**
+4. Uvidíš JSON data. Hledej tyto hodnoty:
+
+```json
+{
+  "control": {
+    "authCode": "TOTO_JE_AUTH_CODE",
+    "targetId": "TOTO_JE_TARGET_ID",
+    "targetType": "3",
+    "deviceIp": "192.168.x.x",
+    "devicePort": "8888"
+  },
+  "value": { ... }
+}
+```
+
+5. Zkopíruj:
+   - **`authCode`** → zadávej jako **Auth Code** v nastavení integrace
+   - **`targetId`** → zadávej jako **Target ID** v nastavení integrace
+   - **`deviceIp`** → zadávej jako **IP adresa** v nastavení integrace
+
+#### Alternativa: Wireshark na PC
+
+Pokud máš vysavač připojený přes WiFi, můžeš použít i **Wireshark** na notebooku:
+1. Nastav Wireshark na zachytávání WiFi provozu
+2. Filtr: `tcp.port == 8888`
+3. Pošli příkaz přes mobilní aplikaci
+4. Najdi JSON payload v TCP streamu
 
 ## Příkazy (send_command)
 
@@ -87,13 +134,35 @@ Přihlašovací údaje (`auth_code` a `target_id`) získáš pomocí síťového
 | `map` / `get_map` | Stáhnout aktuální mapu |
 | `keepalive` | Keepalive signál |
 
+## Mapa a sledování úklidu
+
+Integrace stahuje každých 15 sekund aktuální mapu a trasu vysavače. Data přichází jako Base64 zakódovaný binární payload přes příkaz `map` (transitCmd 131/132).
+
+### Co integration poskytuje:
+
+- **Mapa RAW** — surová data mapy (Base64), lze dekódovat pro zobrazení
+- **Trasa RAW** — surová data trasy (Base64), lze dekódovat pro zobrazení
+- **Uklizená plocha** — m² z aktuálního úklidu (z mapového payloadu)
+- **Čas úklidu** — sekundy z aktuálního úklidu
+- **ID aktuálního úklidu** — identifikátor probíhajícího úklidu
+
+### Dekódování mapy
+
+Mapa a trasa jsou binární data zakódovaná v Base64. Pro zobrazení v Home Assistant lze použít:
+- Template senzor s `base64_decode` filtrem
+- Vlastní karta (custom card) pro zobrazení mapy
+- automatizace which z Base64 dat vyextrahuje pozici vysavače
+
 ## Technické detaily
 
-- Komunikace přes TCP na portu 8888
-- Binární protokol s JSON payloadem (zopakovaný z PCAPdroid snímků mobilní aplikace)
-- Handshake sekvence pro autentizaci
+- Komunikace přes TCP na portu **8888**
+- Binární protokol s JSON payloadem (reverzovaný z PCAPdroid snímků mobilní aplikace)
+- Handshake sekvence (20 bajtů) pro autentizaci
+- Každý paket obsahuje: velikost (4B) + header tail (16B) + JSON payload
 - Polling každých 15 sekund pro stav a mapu
-- Mapa a trasa jsou Base64 zakódované binární payload
+- Podporované commandy: start, pause, dock, auto, edge, spot, manual, map, keepalive
+- Pracovní stavy: 1=uklízí, 2=návrat, 5=start, 6=pauza
+- Pracovní režimy: 0=auto, 1=spot, 4=podél zdi, 6=auto
 
 ## Kompatibilita
 
