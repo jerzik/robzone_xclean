@@ -1,0 +1,17 @@
+{
+  "domain": "robzone_xclean",
+  "name": "Robzone Xclean",
+  "codeowners": [
+    "@jerzik"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/jerzik/robzone_xclean",
+  "issue_tracker": "https://github.com/jerzik/robzone_xclean/issues",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "version": "2.0.1",
+  "integration_type": "device",
+  "loggers": [
+    "custom_components.robzone_xclean"
+  ]
+}

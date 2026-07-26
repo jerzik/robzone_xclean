@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Robzone Duoro Xclean LAN",
+        "description": "Local LAN control for Robzone Duoro Xclean / HCTRobot compatible vacuums. Enter host, port, authCode and targetId captured from the app/PCAP.",
+        "data": {
+          "name": "Name",
+          "host": "Vacuum IP address",
+          "port": "Port",
+          "auth_code": "Auth code",
+          "target_id": "Target ID"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect",
+      "unknown": "Unknown error"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  }
+}

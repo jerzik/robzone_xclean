@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Robzone Duoro Xclean LAN",
+        "description": "Lokální LAN ovládání vysavače Robzone Duoro Xclean / HCTRobot kompatibilní model. Zadej IP adresu, port, authCode a targetId získané z aplikace/PCAP.",
+        "data": {
+          "name": "Název",
+          "host": "IP adresa vysavače",
+          "port": "Port",
+          "auth_code": "Auth code",
+          "target_id": "Target ID"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nelze se připojit",
+      "unknown": "Neznámá chyba"
+    },
+    "abort": {
+      "already_configured": "Zařízení je již nastavené"
+    }
+  }
+}
