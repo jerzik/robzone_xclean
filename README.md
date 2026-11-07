@@ -16,6 +16,7 @@ LAN integrace pro robotický vysavač **Robzone Duoro Xclean 5** (a kompatibiln�
 - Automatický režim
 - Čištění podél zdi (edge/wall)
 - Manuální ovládání (vpřed, vlevo, vpravo, vzad)
+- Výkon sání: vypnuto, normální, MAX/turbo a ECO
 - Příkaz `send_command` pro pokročilé ovládání
 
 ### Senzory
@@ -42,6 +43,9 @@ LAN integrace pro robotický vysavač **Robzone Duoro Xclean 5** (a kompatibiln�
 4. Kategorie: **Integration**
 5. Klikni **Add** → počkej → vyber **Robzone Xclean** → **Download**
 6. Restartuj Home Assistant
+
+Od verze 2.1.0 HACS používá release archiv `robzone_xclean.zip`. Vývojová
+větev `main` je v nabídce skrytá, aby se instalovala pouze validovaná vydání.
 
 ### Manuálně
 
@@ -126,6 +130,10 @@ Pokud máš vysavač připojený přes WiFi, můžeš použít i **Wireshark** n
 | `edge_start` | Edge + start |
 | `spot` | Bodový úklid |
 | `spot_start` | Spot + start |
+| `fan_off` | Vypnout sání |
+| `fan_normal` / `normal` | Normální výkon |
+| `fan_max` / `max` / `turbo` | Maximální výkon |
+| `fan_eco` / `eco` | ECO výkon |
 | `forward` | Vpřed |
 | `left` | Vlevo |
 | `right` | Vpravo |
@@ -136,7 +144,10 @@ Pokud máš vysavač připojený přes WiFi, můžeš použít i **Wireshark** n
 
 ## Mapa a sledování úklidu
 
-Integrace stahuje každých 15 sekund aktuální mapu a trasu vysavače. Data přichází jako Base64 zakódovaný binární payload přes příkaz `map` (transitCmd 131/132).
+Integrace stahuje každých 60 sekund aktuální mapu a trasu vysavače. Příkazy
+jsou řazeny sériově a mezi TCP relacemi je ochranná prodleva, protože firmware
+robota spolehlivě obslouží pouze jedno spojení současně. Data mapy přichází
+jako Base64 zakódovaný binární payload přes příkaz `map` (transitCmd 131/132).
 
 ### Co integration poskytuje:
 
@@ -159,15 +170,51 @@ Mapa a trasa jsou binární data zakódovaná v Base64. Pro zobrazení v Home As
 - Binární protokol s JSON payloadem (reverzovaný z PCAPdroid snímků mobilní aplikace)
 - Handshake sekvence (20 bajtů) pro autentizaci
 - Každý paket obsahuje: velikost (4B) + header tail (16B) + JSON payload
-- Polling každých 15 sekund pro stav a mapu
-- Podporované commandy: start, pause, dock, auto, edge, spot, manual, map, keepalive
-- Pracovní stavy: 1=uklízí, 2=návrat, 5=start, 6=pauza
+- Polling každých 60 sekund pro stav a mapu
+- Podporované commandy: start, pause, dock, auto, edge, spot, manual, fan, map, keepalive
+- Pracovní stavy: 1=uklízí, 2=dock/nabíjení, 4=návrat, 5=připraven, 6=pauza
 - Pracovní režimy: 0=auto, 1=spot, 4=podél zdi, 6=auto
+
+## Watchdog docku přes Tasmota/ESP relé
+
+Volitelný package je v
+[`packages/robzone_watchdog.yaml`](packages/robzone_watchdog.yaml). Package je
+záměrně oddělený od integrace, protože každý uživatel může mít jiné relé a jiné
+entity.
+
+### Instalace package
+
+1. Zkopíruj `packages/robzone_watchdog.yaml` do `/config/packages/`.
+2. V jeho hlavičce zkontroluj entity vysavače, baterie a relé.
+3. Pokud packages ještě nepoužíváš, přidej do `configuration.yaml`:
+
+```yaml
+homeassistant:
+  packages: !include_dir_named packages
+```
+
+4. Ověř konfiguraci a restartuj Home Assistant.
+5. Přidej kartu z
+   [`dashboards/robzone_watchdog_card.yaml`](dashboards/robzone_watchdog_card.yaml).
+
+### Chování watchdogu
+
+- Výpadek se nejprve potvrzuje 15 minut; hodnota je editovatelná v HA.
+- Mezi 08:00 a 20:00 se cyklus provede ihned po potvrzení výpadku.
+- Mezi 20:00 a 08:00 se automatický restart neprovede.
+- Pokud je robot stále nedostupný, cyklus se provede v 08:00.
+- Ruční tlačítko v HA provede cyklus kdykoliv a časové omezení obchází.
+- Výchozí přerušení napájení je 2 minuty a lze je upravit v HA.
+- Package uloží původní stav relé, obrátí jej a po prodlevě jej obnoví. Proto
+  podporuje zapojení přes NO i NC kontakt.
+
+> Před připojením síťového napětí ověř zapojení relé a jeho proudové i napěťové
+> parametry. Práce se síťovým napětím musí být provedena bezpečně.
 
 ## Kompatibilita
 
-- Home Assistant 2024.1+
-- Python 3.12+
+- Home Assistant 2026.10+
+- Python 3.14+
 - Robzone Duoro Xclean 5 (firmware 5.0.x)
 - HCTRobot kompatibilní vysavače
 

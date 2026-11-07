@@ -1,0 +1,24 @@
+type: entities
+title: Robzone - dohled a restart docku
+show_header_toggle: false
+entities:
+  - entity: vacuum.robzone_duoro_xclean
+    name: Vysavač
+  - entity: sensor.robzone_duoro_xclean_5_baterie
+    name: Baterie / dostupnost
+  - entity: switch.robzone_relay
+    name: Relé docku
+  - entity: input_number.robzone_dock_power_cycle_minutes
+  - entity: input_number.robzone_unavailable_minutes
+  - entity: input_datetime.robzone_restart_window_start
+  - entity: input_datetime.robzone_restart_window_end
+  - type: button
+    entity: input_button.robzone_restart_dock_manual
+    name: Restartovat dock nyní
+    icon: mdi:restart-alert
+    tap_action:
+      action: perform-action
+      perform_action: input_button.press
+      target:
+        entity_id: input_button.robzone_restart_dock_manual
+

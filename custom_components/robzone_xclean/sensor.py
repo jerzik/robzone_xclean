@@ -45,8 +45,9 @@ def _work_state(status: dict[str, Any], _map: dict[str, Any]) -> str | None:
     value = status.get("workState")
     names = {
         "1": "uklízí",
-        "2": "návrat do docku",
-        "5": "start / rozjezd",
+        "2": "v docku / nabíjí",
+        "4": "návrat do docku",
+        "5": "připraven",
         "6": "pauza / standby",
     }
     return names.get(str(value), str(value)) if value is not None else None
@@ -68,6 +69,17 @@ def _error(status: dict[str, Any], _map: dict[str, Any]) -> str | None:
     if value is None:
         return None
     return "bez chyby" if str(value) == "0" else f"chyba {value}"
+
+
+def _fan_speed(status: dict[str, Any], _map: dict[str, Any]) -> str | None:
+    value = status.get("fan")
+    names = {
+        "1": "vypnuto",
+        "2": "normální",
+        "3": "MAX",
+        "4": "ECO",
+    }
+    return names.get(str(value), str(value)) if value is not None else None
 
 
 def _map_value(key: str) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
@@ -104,7 +116,7 @@ SENSORS: tuple[SensorDescription, ...] = (
         key="fan",
         name="Výkon ventilátoru",
         icon="mdi:fan",
-        value_fn=lambda status, _map: status.get("fan"),
+        value_fn=_fan_speed,
     ),
     SensorDescription(
         key="error",
@@ -165,7 +177,10 @@ async def async_setup_entry(
     coordinator = data["coordinator"]
 
     async_add_entities(
-        [RobzoneSensor(entry, client, coordinator, description) for description in SENSORS],
+        [
+            RobzoneSensor(entry, client, coordinator, description)
+            for description in SENSORS
+        ],
         True,
     )
 

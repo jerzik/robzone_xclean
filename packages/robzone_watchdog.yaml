@@ -1,0 +1,177 @@
+###############################################################################
+# Robzone Xclean - watchdog napájení docku přes Tasmota/ESP relé
+#
+# Před použitím uprav podle své instalace tyto entity:
+#   vacuum.robzone_duoro_xclean
+#   sensor.robzone_duoro_xclean_5_baterie
+#   switch.robzone_relay
+#
+# Balíček vyžaduje v configuration.yaml:
+#   homeassistant:
+#     packages: !include_dir_named packages
+###############################################################################
+
+input_number:
+  robzone_dock_power_cycle_minutes:
+    name: Robzone doba odpojení docku
+    icon: mdi:timer-power
+    min: 1
+    max: 15
+    step: 1
+    initial: 2
+    mode: box
+    unit_of_measurement: min
+
+  robzone_unavailable_minutes:
+    name: Robzone potvrzení výpadku
+    icon: mdi:timer-alert-outline
+    min: 5
+    max: 60
+    step: 5
+    initial: 15
+    mode: box
+    unit_of_measurement: min
+
+input_datetime:
+  robzone_restart_window_start:
+    name: Robzone automatický restart od
+    icon: mdi:clock-start
+    has_date: false
+    has_time: true
+    initial: "08:00:00"
+
+  robzone_restart_window_end:
+    name: Robzone automatický restart do
+    icon: mdi:clock-end
+    has_date: false
+    has_time: true
+    initial: "20:00:00"
+
+input_button:
+  robzone_restart_dock_manual:
+    name: Robzone ruční restart docku
+    icon: mdi:restart-alert
+
+script:
+  robzone_dock_power_cycle:
+    alias: Robzone přerušení napájení docku
+    icon: mdi:power-cycle
+    mode: single
+    fields:
+      reason:
+        name: Důvod
+        description: Ruční nebo automatický restart
+        example: manual
+        selector:
+          text:
+    sequence:
+      - condition: template
+        value_template: >
+          {{ states('switch.robzone_relay') in ['on', 'off'] }}
+      - variables:
+          relay_was_on: "{{ is_state('switch.robzone_relay', 'on') }}"
+          outage_seconds: >
+            {{ (states('input_number.robzone_dock_power_cycle_minutes')
+                | float(2) * 60) | int }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ relay_was_on }}"
+            sequence:
+              - service: switch.turn_off
+                target:
+                  entity_id: switch.robzone_relay
+        default:
+          - service: switch.turn_on
+            target:
+              entity_id: switch.robzone_relay
+      - delay:
+          seconds: "{{ outage_seconds }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ relay_was_on }}"
+            sequence:
+              - service: switch.turn_on
+                target:
+                  entity_id: switch.robzone_relay
+        default:
+          - service: switch.turn_off
+            target:
+              entity_id: switch.robzone_relay
+      - delay: "00:01:00"
+      - service: homeassistant.update_entity
+        target:
+          entity_id:
+            - vacuum.robzone_duoro_xclean
+            - sensor.robzone_duoro_xclean_5_baterie
+
+automation:
+  - alias: Robzone ruční tlačítko restartu docku
+    id: robzone_manual_dock_power_cycle
+    trigger:
+      - platform: state
+        entity_id: input_button.robzone_restart_dock_manual
+    action:
+      - service: script.robzone_dock_power_cycle
+        data:
+          reason: manual
+    mode: single
+
+  - alias: Robzone automatický restart při výpadku
+    id: robzone_auto_dock_power_cycle_on_outage
+    trigger:
+      - platform: state
+        entity_id: sensor.robzone_duoro_xclean_5_baterie
+        to: "unavailable"
+        for:
+          minutes: >
+            {{ states('input_number.robzone_unavailable_minutes') | int(15) }}
+    condition:
+      - condition: template
+        value_template: >
+          {{ trigger.from_state is not none and
+             trigger.from_state.state not in ['unknown', 'unavailable'] }}
+      - condition: template
+        value_template: >
+          {{ states('switch.robzone_relay') in ['on', 'off'] }}
+      - condition: template
+        value_template: >
+          {{ states('vacuum.robzone_duoro_xclean')
+             not in ['cleaning', 'returning'] }}
+      - condition: template
+        value_template: >
+          {% set start = today_at(states('input_datetime.robzone_restart_window_start')) %}
+          {% set end = today_at(states('input_datetime.robzone_restart_window_end')) %}
+          {{ start <= now() < end }}
+    action:
+      - service: script.robzone_dock_power_cycle
+        data:
+          reason: automatic_outage
+    mode: single
+
+  - alias: Robzone odložený restart v povolený čas
+    id: robzone_deferred_dock_power_cycle
+    trigger:
+      - platform: time
+        at: input_datetime.robzone_restart_window_start
+    condition:
+      - condition: state
+        entity_id: sensor.robzone_duoro_xclean_5_baterie
+        state: "unavailable"
+        for:
+          minutes: >
+            {{ states('input_number.robzone_unavailable_minutes') | int(15) }}
+      - condition: template
+        value_template: >
+          {{ states('switch.robzone_relay') in ['on', 'off'] }}
+      - condition: template
+        value_template: >
+          {{ states('vacuum.robzone_duoro_xclean')
+             not in ['cleaning', 'returning'] }}
+    action:
+      - service: script.robzone_dock_power_cycle
+        data:
+          reason: deferred_to_morning
+    mode: single
+

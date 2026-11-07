@@ -1,5 +1,8 @@
 {
   "name": "Robzone Xclean",
   "render_readme": true,
-  "content_in_root": false
+  "content_in_root": false,
+  "filename": "robzone_xclean.zip",
+  "hide_default_branch": true,
+  "zip_release": true
 }

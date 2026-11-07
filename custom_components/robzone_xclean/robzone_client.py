@@ -91,6 +91,10 @@ class RobzoneClient:
 
         self.last_status: dict[str, Any] = {}
         self.last_map: dict[str, Any] = {}
+        # The robot firmware accepts only one LAN session reliably. Serialize
+        # coordinator polling, dashboard commands and automations.
+        self._command_lock = asyncio.Lock()
+        self._last_command_finished = 0.0
 
     def _build_packet(self, command: str) -> bytes:
         """Build binary packet with JSON payload."""
@@ -158,10 +162,25 @@ class RobzoneClient:
                     self.last_status[key] = value[key]
             return
 
-        if any(k in value for k in ("battery", "workState", "workMode", "fan", "direction", "error")):
+        status_keys = (
+            "battery",
+            "workState",
+            "workMode",
+            "fan",
+            "direction",
+            "error",
+        )
+        if any(k in value for k in status_keys):
+            # The HCT handshake sometimes returns a placeholder status where
+            # every field is "0". It must not replace the last valid status.
+            present = [str(value[k]) for k in status_keys if k in value]
+            if present and all(item == "0" for item in present):
+                return
             self.last_status.update(value)
 
-    def _status_from_objects(self, objects: list[dict[str, Any]]) -> RobzoneStatus | None:
+    def _status_from_objects(
+        self, objects: list[dict[str, Any]]
+    ) -> RobzoneStatus | None:
         """Process all parsed objects and return the last useful status."""
         useful: RobzoneStatus | None = None
 
@@ -187,25 +206,62 @@ class RobzoneClient:
         return useful
 
     async def send_command(self, command: str) -> RobzoneStatus | None:
-        """Send command to vacuum and return parsed status."""
+        """Serialize and send a command to the vacuum."""
+        async with self._command_lock:
+            loop = asyncio.get_running_loop()
+            cooldown = 2.0 - (loop.time() - self._last_command_finished)
+            if cooldown > 0:
+                await asyncio.sleep(cooldown)
+            try:
+                return await self._send_command_unlocked(command)
+            finally:
+                self._last_command_finished = loop.time()
+
+    async def _open_connection(
+        self,
+    ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        """Open the LAN socket, retrying only before a command is sent."""
+        last_error: OSError | None = None
+        for attempt in range(3):
+            try:
+                return await asyncio.wait_for(
+                    asyncio.open_connection(self.host, self.port),
+                    timeout=self.timeout,
+                )
+            except OSError as exc:
+                last_error = exc
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(1.5 * (attempt + 1))
+        raise last_error or ConnectionError("Robzone connection failed")
+
+    async def _send_command_unlocked(
+        self, command: str
+    ) -> RobzoneStatus | None:
+        """Send one command while holding the client command lock."""
         packet = self._build_packet(command)
 
         reader: asyncio.StreamReader | None = None
         writer: asyncio.StreamWriter | None = None
 
         try:
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(self.host, self.port),
-                timeout=self.timeout,
-            )
+            reader, writer = await self._open_connection()
 
             writer.write(HANDSHAKE)
             await writer.drain()
 
             try:
-                handshake_response = await asyncio.wait_for(reader.read(4096), timeout=2.0)
+                handshake_response = await asyncio.wait_for(
+                    reader.read(4096), timeout=2.0
+                )
                 if handshake_response:
-                    _LOGGER.debug("Robzone handshake response: %s", handshake_response.hex(" "))
+                    _LOGGER.debug(
+                        "Robzone handshake response: %s",
+                        handshake_response.hex(" "),
+                    )
+                    handshake_objects = self._extract_json_objects(handshake_response)
+                    if handshake_objects:
+                        self._status_from_objects(handshake_objects)
             except asyncio.TimeoutError:
                 pass
 
@@ -215,10 +271,18 @@ class RobzoneClient:
             await writer.drain()
 
             chunks: list[bytes] = []
-            deadline = asyncio.get_running_loop().time() + 2.0
+            loop = asyncio.get_running_loop()
+            deadline = loop.time() + 3.0
+            quiet_deadline: float | None = None
 
+            # A connection can deliver an acknowledgement, old status and then
+            # post-command status. Wait until it becomes quiet so the newest
+            # status wins instead of lagging one command behind.
             while True:
-                remaining = deadline - asyncio.get_running_loop().time()
+                now = loop.time()
+                remaining = deadline - now
+                if quiet_deadline is not None:
+                    remaining = min(remaining, quiet_deadline - now)
                 if remaining <= 0:
                     break
 
@@ -231,15 +295,7 @@ class RobzoneClient:
                     break
 
                 chunks.append(chunk)
-
-                joined = b"".join(chunks)
-                # Status/map payloads usually arrive quickly. For map responses,
-                # wait until map/track appears, otherwise return after value.
-                if command in ("map", "get_map"):
-                    if b'"track"' in joined or b'"map"' in joined:
-                        break
-                elif b'"value"' in joined:
-                    break
+                quiet_deadline = loop.time() + 0.8
 
             raw = b"".join(chunks)
             objects = self._extract_json_objects(raw)

@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["Validate"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish HACS release
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+
+      - name: Read integration version
+        id: version
+        shell: bash
+        run: |
+          version="$(python -c 'import json; print(json.load(open("custom_components/robzone_xclean/manifest.json"))["version"])')"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Build HACS archive
+        shell: bash
+        run: |
+          zip -r robzone_xclean.zip \
+            custom_components/robzone_xclean \
+            packages \
+            dashboards \
+            README.md CHANGELOG.md RELEASE_NOTES.md LICENSE
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          tag="v${VERSION}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; leaving it unchanged."
+            exit 0
+          fi
+          gh release create "$tag" robzone_xclean.zip \
+            --target main \
+            --title "$tag" \
+            --notes-file RELEASE_NOTES.md
+
