@@ -232,3 +232,5 @@ logger:
 ## Licence
 
 MIT
+
+<!-- release-trigger: v2.1.0 -->
