@@ -32,11 +32,8 @@ jobs:
       - name: Build HACS archive
         shell: bash
         run: |
-          zip -r robzone_xclean.zip \
-            custom_components/robzone_xclean \
-            packages \
-            dashboards \
-            README.md CHANGELOG.md RELEASE_NOTES.md LICENSE
+          cd custom_components/robzone_xclean
+          zip -r ../../../robzone_xclean.zip .
 
       - name: Create release
         env:
