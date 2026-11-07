@@ -233,4 +233,4 @@ logger:
 
 MIT
 
-<!-- release-trigger: v2.1.0 -->
+<!-- release-trigger: v2.1.0-enabled -->
