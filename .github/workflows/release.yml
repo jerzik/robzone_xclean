@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           cd custom_components/robzone_xclean
-          zip -r ../../../robzone_xclean.zip .
+          zip -r ../../robzone_xclean.zip .
 
       - name: Create release
         env:
