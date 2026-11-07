@@ -44,7 +44,7 @@ LAN integrace pro robotický vysavač **Robzone Duoro Xclean 5** (a kompatibiln�
 5. Klikni **Add** → počkej → vyber **Robzone Xclean** → **Download**
 6. Restartuj Home Assistant
 
-Od verze 2.1.0 HACS používá release archiv `robzone_xclean.zip`. Vývojová
+Od verze 2.1.1 HACS používá release archiv `robzone_xclean.zip`. Vývojová
 větev `main` je v nabídce skrytá, aby se instalovala pouze validovaná vydání.
 
 ### Manuálně
