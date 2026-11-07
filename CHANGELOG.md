@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.1 - 2026-11-07
+
+- Opravena struktura HACS release archivu: soubory integrace jsou nyní přímo
+  v kořeni ZIPu, takže HACS nevytváří vnořenou složku `custom_components`.
+- Funkce a automatizace z verze 2.1.0 zůstávají beze změny.
+
 ## 2.1.0 - 2026-11-07
 
 - Přidáno ovládání výkonu sání: vypnuto, normální, MAX/turbo a ECO.
