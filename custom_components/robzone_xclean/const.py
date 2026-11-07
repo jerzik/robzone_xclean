@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 DOMAIN = "robzone_xclean"
-VERSION = "2.1.0"
+VERSION = "2.1.1"
 
 CONF_AUTH_CODE = "auth_code"
 CONF_TARGET_ID = "target_id"
