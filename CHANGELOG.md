@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.0 - 2026-11-12
+
+- Zrušeno automatické TCP dotazování mapy každých 60 sekund.
+- Odstraněny povely `map`, `get_map` a `keepalive`; integrace už neposílá
+  `transitCmd 131`.
+- Stav entit se aktualizuje pouze z odpovědí na skutečné ovládací povely.
+- Doplněno řízení časované hadovité trasy obdélníku X × Y ze středu plochy
+  s nastavitelnou roztečí, kalibrací, výkonem a nouzovým STOP.
+
 ## 2.1.1 - 2026-11-07
 
 - Opravena struktura HACS release archivu: soubory integrace jsou nyní přímo
