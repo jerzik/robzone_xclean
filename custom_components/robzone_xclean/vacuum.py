@@ -181,9 +181,6 @@ class RobzoneXcleanVacuum(StateVacuumEntity):
             "backward": ["back"],
             "manual_stop": ["manual_stop"],
             "stop_move": ["stop_move"],
-            "map": ["map"],
-            "get_map": ["map"],
-            "keepalive": ["keepalive"],
         }
 
         if command not in command_map:
