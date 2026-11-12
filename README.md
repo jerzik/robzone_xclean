@@ -18,7 +18,6 @@ LAN integrace pro robotický vysavač **Robzone Duoro Xclean 5** (a kompatibiln�
 - Manuální ovládání (vpřed, vlevo, vpravo, vzad)
 - Výkon sání: vypnuto, normální, MAX/turbo a ECO
 - Příkaz `send_command` pro pokročilé ovládání
-- Bez automatického TCP dotazování na mapu (`transitCmd 131` je od v2.2.0 vypnutý)
 
 ### Senzory
 | Senzor | Popis |
@@ -140,26 +139,30 @@ Pokud máš vysavač připojený přes WiFi, můžeš použít i **Wireshark** n
 | `right` | Vpravo |
 | `back` | Vzad |
 | `manual_stop` | Zastavit manuální pohyb |
+| `map` / `get_map` | Stáhnout aktuální mapu |
+| `keepalive` | Keepalive signál |
 
-## TCP provoz a mapa
+## Mapa a sledování úklidu
 
-Od verze **2.2.0** integrace neposílá žádný automatický požadavek na mapu.
-Příkazy `map`, `get_map` a `keepalive` byly z řízení odstraněny, takže se
-`transitCmd 131` neodešle ani ze starého HA skriptu. Stav se aktualizuje pouze
-z odpovědí na skutečné ovládací povely (start, pauza, pohyb, výkon a dock).
+Integrace stahuje každých 60 sekund aktuální mapu a trasu vysavače. Příkazy
+jsou řazeny sériově a mezi TCP relacemi je ochranná prodleva, protože firmware
+robota spolehlivě obslouží pouze jedno spojení současně. Data mapy přichází
+jako Base64 zakódovaný binární payload přes příkaz `map` (transitCmd 131/132).
 
-Dříve přijaté mapové senzory mohou v HA zůstat jako neaktivní diagnostické
-entity, ale integrace je už sama neobnovuje.
+### Co integration poskytuje:
 
-## Programovaný obdélník X × Y
+- **Mapa RAW** — surová data mapy (Base64), lze dekódovat pro zobrazení
+- **Trasa RAW** — surová data trasy (Base64), lze dekódovat pro zobrazení
+- **Uklizená plocha** — m² z aktuálního úklidu (z mapového payloadu)
+- **Čas úklidu** — sekundy z aktuálního úklidu
+- **ID aktuálního úklidu** — identifikátor probíhajícího úklidu
 
-V Home Assistantu lze vytvořit časově řízenou hadovitou trasu. Robot se před
-startem postaví doprostřed plochy a natočí podél osy X. Ze středu dojede k
-okraji X a Y a potom projede rovnoběžné pruhy až k protějšímu kraji. Rozměry
-X/Y, rozteč pruhů, délka bezpečnostního úseku, čas jízdy na metr, čas otočení
-a výkon sání jsou nastavitelné pomocí HA helperů. Trasa nepoužívá mapu ani
-odhad polohy, proto je nutné nejdřív kalibrovat čas pohybu a otočení na volné
-ploše a zachovat nouzové tlačítko STOP.
+### Dekódování mapy
+
+Mapa a trasa jsou binární data zakódovaná v Base64. Pro zobrazení v Home Assistant lze použít:
+- Template senzor s `base64_decode` filtrem
+- Vlastní karta (custom card) pro zobrazení mapy
+- automatizace which z Base64 dat vyextrahuje pozici vysavače
 
 ## Technické detaily
 
@@ -167,7 +170,7 @@ ploše a zachovat nouzové tlačítko STOP.
 - Binární protokol s JSON payloadem (reverzovaný z PCAPdroid snímků mobilní aplikace)
 - Handshake sekvence (20 bajtů) pro autentizaci
 - Každý paket obsahuje: velikost (4B) + header tail (16B) + JSON payload
-- Bez periodického pollingu; cache se mění jen po ovládacím povelu
+- Polling každých 60 sekund pro stav a mapu
 - Podporované commandy: start, pause, dock, auto, edge, spot, manual, fan, map, keepalive
 - Pracovní stavy: 1=uklízí, 2=dock/nabíjení, 4=návrat, 5=připraven, 6=pauza
 - Pracovní režimy: 0=auto, 1=spot, 4=podél zdi, 6=auto
@@ -230,4 +233,4 @@ logger:
 
 MIT
 
-<!-- release-trigger: v2.2.0-no-map -->
+<!-- release-trigger: v2.1.0-enabled -->

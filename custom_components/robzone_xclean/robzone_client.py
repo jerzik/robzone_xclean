@@ -320,3 +320,6 @@ class RobzoneClient:
         """Home Assistant friendly command alias."""
         return await self.send_command(command)
 
+    async def async_get_map(self) -> RobzoneStatus | None:
+        """Fetch current live map/track payload from the vacuum."""
+        return await self.send_command("map")

@@ -1,15 +1,13 @@
-## Robzone Xclean v2.2.0
+## Robzone Xclean v2.1.1
 
-Toto vydání odstraňuje nevyžádané TCP dotazy, které mohly robot probouzet
-nebo zatěžovat jeho firmware.
+Opravné vydání pro instalaci přes HACS.
 
-- Integrace už neprovádí automatické minutové načítání mapy.
-- Příkazy `map`, `get_map` a `keepalive` byly odstraněny, takže se
-  `transitCmd 131` neodešle ani při spuštění starého HA skriptu.
-- Start, pauza, dock, výkon sání a ruční pohyb zůstávají zachovány.
-- Stav se aktualizuje z odpovědí na skutečné ovládací povely.
-- V HA lze použít novou časovanou hadovitou trasu obdélníku X × Y ze středu
-  plochy s kalibrací pohybu, roztečí pruhů a nouzovým STOP.
+- ZIP nyní obsahuje soubory integrace přímo v kořeni archivu.
+- Opravuje vnořenou cestu vytvořenou chybným archivem v2.1.0.
+- Zachovává ovládání sání včetně MAX/ECO, ruční jízdu dozadu,
+  stabilizovanou LAN komunikaci a watchdog relé docku.
+- Watchdog má editovatelnou délku odpojení, potvrzení výpadku,
+  okno 08:00–20:00, ranní odklad a ruční tlačítko.
 
-Po instalaci je nutný restart Home Assistantu, aby se načetl nový kód
-integrace.
+Package watchdogu a karta zůstávají v repozitáři v adresářích
+`packages/` a `dashboards/`; HACS instaluje pouze vlastní integraci.
