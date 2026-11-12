@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 DOMAIN = "robzone_xclean"
-VERSION = "2.1.1"
+VERSION = "2.2.0"
 
 CONF_AUTH_CODE = "auth_code"
 CONF_TARGET_ID = "target_id"
@@ -10,7 +10,6 @@ CONF_TARGET_ID = "target_id"
 DEFAULT_PORT = 8888
 DEFAULT_VERSION = "5.0.8"
 DEFAULT_TARGET_TYPE = "3"
-DEFAULT_SCAN_INTERVAL_SECONDS = 60
 
 COMMANDS = {
     # Basic cleaning commands
@@ -52,10 +51,4 @@ COMMANDS = {
     "backward": {"direction": "2", "transitCmd": "108"},
     "dozadu": {"direction": "2", "transitCmd": "108"},
 
-    # Live map / track query verified from PCAPdroid captures.
-    # Response is transitCmd 132 and includes clearArea, clearTime, clearSign,
-    # map and track as Base64 encoded binary payloads.
-    "map": {"total": "", "transitCmd": "131"},
-    "keepalive": {"total": "", "transitCmd": "131"},
-    "get_map": {"total": "", "transitCmd": "131"},
 }
