@@ -230,4 +230,4 @@ logger:
 
 MIT
 
-<!-- release-trigger: v2.1.0-enabled -->
+<!-- release-trigger: v2.2.0-no-map -->
