@@ -1,53 +1,94 @@
 name: Release
 
+# Release is ONLY started by hand: Actions -> Release -> Run workflow (branch main).
+# You type the version, and it is published only when:
+#   - manifest.json, CHANGELOG.md and RELEASE_NOTES.md all agree on that version,
+#   - the tag does not exist yet and is higher than the last release,
+#   - HACS and hassfest validation pass on exactly this commit,
+#   - the ZIP has integration files at its root.
+# Run with dry_run first; it does everything except publish.
+
 on:
-  workflow_run:
-    workflows: ["Validate"]
-    types: [completed]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 2.2.0 (must match manifest.json)"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run: check and build only, do not publish"
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
-    name: Publish HACS release
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+  preflight:
+    name: Version consistency
     runs-on: ubuntu-latest
+    steps:
+      - name: Require main branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Release se spousti jen z vetve main (ted ${GITHUB_REF})."
+          exit 1
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Check version, changelog, notes and tags
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python3 .github/scripts/release.py check "$VERSION"
+
+  validate:
+    name: Validate
+    needs: preflight
+    uses: ./.github/workflows/validate.yml
+
+  publish:
+    name: Build and publish
+    needs: [preflight, validate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: main
+          fetch-depth: 0
 
-      - name: Read integration version
-        id: version
-        shell: bash
-        run: |
-          version="$(python -c 'import json; print(json.load(open("custom_components/robzone_xclean/manifest.json"))["version"])')"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - name: Build and verify HACS archive
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python3 .github/scripts/release.py build "$VERSION" robzone_xclean.zip
 
-      - name: Build HACS archive
-        shell: bash
+      - name: Dry run summary
+        if: inputs.dry_run
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          cd custom_components/robzone_xclean
-          zip -r ../../robzone_xclean.zip .
+          {
+            echo "### Dry run v${VERSION}: vse zelene, nic nevydano"
+            echo "Commit: \`${GITHUB_SHA}\`"
+            echo "Pro vydani spust workflow znovu s vypnutym dry_run."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create release
+        if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
-        shell: bash
+          VERSION: ${{ inputs.version }}
         run: |
           tag="v${VERSION}"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag already exists; leaving it unchanged."
-            exit 0
-          fi
           gh release create "$tag" robzone_xclean.zip \
-            --target main \
+            --target "$GITHUB_SHA" \
             --title "$tag" \
             --notes-file RELEASE_NOTES.md
-
+          echo "### Vydano ${tag} z commitu \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
